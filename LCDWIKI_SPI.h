@@ -28,6 +28,7 @@
 #define ID_4535    4
 #define ID_9486    5
 #define ID_7735    6
+#define ID_1283A   7
 #define ID_UNKNOWN 0xFF
 
 //LCD controller chip mode identifiers
@@ -39,6 +40,7 @@
 #define HX8347I 5
 #define ILI9486 6
 #define ST7735S 7
+#define SSD1283A 8
 
 typedef struct _lcd_info
 {
@@ -50,10 +52,10 @@ typedef struct _lcd_info
 class LCDWIKI_SPI:public LCDWIKI_GUI
 {
 	public:
-	LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_t mosi, int8_t reset, int8_t clk);
-	LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset);
-	LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t miso, int8_t mosi, int8_t reset, int8_t clk);
-	LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t reset);
+	LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_t mosi, int8_t reset, int8_t clk, int8_t led);
+	LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset,int8_t led);
+	LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t miso, int8_t mosi, int8_t reset, int8_t clk,int8_t led);
+	LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t reset,int8_t led);
 	void Init_LCD(void);
 	void reset(void);
 	void start(uint16_t ID);
@@ -65,7 +67,7 @@ class LCDWIKI_SPI:public LCDWIKI_GUI
 	void Write_Cmd_Data(uint16_t cmd, uint16_t data);
 	void init_table8(const void *table, int16_t size);
 	void init_table16(const void *table, int16_t size);
-	void Push_Command(uint16_t cmd, uint8_t *block, int8_t N);
+	void Push_Command(uint8_t cmd, uint8_t *block, int8_t N);
 	uint16_t Color_To_565(uint8_t r, uint8_t g, uint8_t b);
 	uint16_t Read_ID(void);
 	void Fill_Rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t color);
@@ -81,6 +83,7 @@ class LCDWIKI_SPI:public LCDWIKI_GUI
 	int16_t Get_Height(void) const;
   	int16_t Get_Width(void) const;
 	void Set_LR(void);
+	void Led_control(boolean i);
 
 	protected:
     uint16_t WIDTH,HEIGHT,width, height, rotation,lcd_driver,lcd_model;
@@ -91,6 +94,6 @@ class LCDWIKI_SPI:public LCDWIKI_GUI
 		 volatile int8_t *spicsPort, *spicdPort, *spimisoPort , *spimosiPort, *spiclkPort;
 			      int8_t  spicsPinSet, spicdPinSet  ,spimisoPinSet , spimosiPinSet , spiclkPinSet,
 						   spicsPinUnset, spicdPinUnset, spimisoPinUnset,  spimosiPinUnset,spiclkPinUnset,
-						   _reset;
+						   _reset,_led;
 };
 #endif

@@ -8,6 +8,7 @@ HX8347G
 HX8347I 
 ILI9486 
 ST7735S 
+SSD1283A
 
 Check out the file of LCDWIKI SPI lib Requirements for our tutorials and wiring diagrams.
 

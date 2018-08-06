@@ -29,15 +29,15 @@
 #define write16(d) write8(d>>8); write8(d)
 #define read16(dst) { uint8_t hi; read8(hi); read8(dst); dst |= (hi << 8); }
 //#define writeCmd8(x) { CD_COMMAND; write8(x); CD_DATA;}
-#define writeCmd8(x) CD_COMMAND; write8(x); CD_DATA
+#define writeCmd8(x) CD_COMMAND; write8(x)
 //#define writeData8(x) {  write8(x) }
-#define writeData8(x)  write8(x) 
+#define writeData8(x)  CD_DATA; write8(x) 
 
 //#define writeCmd16(x) { CD_COMMAND; write16(x); CD_DATA; }
 //#define writeData16(x) { write16(x)}
 
-#define writeCmd16(x)  CD_COMMAND; write16(x); CD_DATA
-#define writeData16(x) write16(x)
+#define writeCmd16(x)  CD_COMMAND; write16(x)
+#define writeData16(x)  CD_DATA; write16(x)
 
 
 //#define writeCmdData8(a, d) { CD_COMMAND; write8(a); CD_DATA; write8(d); }
