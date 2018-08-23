@@ -11,6 +11,7 @@
 #define RD_IDLE     0
 #define WR_ACTIVE   0
 #define WR_IDLE     0
+#if defined(__AVR__)
 #define CD_COMMAND  *spicdPort &= spicdPinUnset     
 #define CD_DATA     *spicdPort |= spicdPinSet
 #define CS_ACTIVE   *spicsPort &= spicsPinUnset
@@ -21,6 +22,17 @@
 #define CLK_LOW  *spiclkPort &= spiclkPinUnset
 #define CLK_HIGH    *spiclkPort |= spiclkPinSet
 
+#elif defined(ARDUINO_ARCH_ESP8266)
+#define CD_COMMAND  (digitalWrite(_cd,LOW))    
+#define CD_DATA     (digitalWrite(_cd,HIGH)) 
+#define CS_ACTIVE   (digitalWrite(_cs,LOW)) 
+#define CS_IDLE     (digitalWrite(_cs,HIGH)) 
+#define MISO_STATE(x) { x = digitalRead(_miso);}
+#define MOSI_LOW    (digitalWrite(_mosi,LOW)) 
+#define MOSI_HIGH   (digitalWrite(_mosi,HIGH)) 
+#define CLK_LOW     (digitalWrite(_clk,LOW)) 
+#define CLK_HIGH    (digitalWrite(_clk,HIGH)) 
+#endif
 
 #define WR_STROBE { }
 #define RD_STROBE { }  

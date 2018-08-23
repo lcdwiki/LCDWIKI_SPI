@@ -91,9 +91,9 @@ class LCDWIKI_SPI:public LCDWIKI_GUI
 	private:
 	uint16_t XC,YC,CC,RC,SC1,SC2,MD,VL,R24BIT;
  
-		 volatile int8_t *spicsPort, *spicdPort, *spimisoPort , *spimosiPort, *spiclkPort;
-			      int8_t  spicsPinSet, spicdPinSet  ,spimisoPinSet , spimosiPinSet , spiclkPinSet,
-						   spicsPinUnset, spicdPinUnset, spimisoPinUnset,  spimosiPinUnset,spiclkPinUnset,
-						   _reset,_led;
+		 volatile uint8_t *spicsPort, *spicdPort, *spimisoPort , *spimosiPort, *spiclkPort;
+			      uint8_t  spicsPinSet, spicdPinSet  ,spimisoPinSet , spimosiPinSet , spiclkPinSet,
+						   spicsPinUnset, spicdPinUnset, spimisoPinUnset,  spimosiPinUnset,spiclkPinUnset;
+				  int8_t   _cs,_cd,_miso,_mosi,_clk,_reset,_led;
 };
 #endif

@@ -12,6 +12,9 @@
     #define pgm_read_word(addr) (*(const unsigned short *)(addr))
 #endif
 
+#if defined(ARDUINO_ARCH_ESP8266)
+#define USE_HWSPI_ONLY
+#endif
 
 #include <SPI.h>
 #include "pins_arduino.h"
@@ -55,15 +58,21 @@ lcd_info current_lcd_info[] =
 							 0x1283,130,130,
 						 };
 
+#if !defined(USE_HWSPI_ONLY)
 // Constructor for software spi.
 // if modules is unreadable or you don't know the width and height of modules,you can use this constructor.
 LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_t mosi, int8_t reset, int8_t clk, int8_t led)
 {
+	_cs = cs;
+	_cd = cd;
+	_miso = miso;
+	_mosi = mosi;
+	_clk = clk;
 	_reset = reset;
 	_led = led;
 	hw_spi = false; //software spi
-	spicsPort = portOutputRegister(digitalPinToPort(cs));
-	spicsPinSet = digitalPinToBitMask(cs);
+	spicsPort = portOutputRegister(digitalPinToPort(_cs));
+	spicsPinSet = digitalPinToBitMask(_cs);
 	spicsPinUnset = ~spicsPinSet;
 		
 	if(cd < 0)
@@ -74,8 +83,8 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_
 	}
 	else
 	{
-		spicdPort = portOutputRegister(digitalPinToPort(cd));
-		spicdPinSet = digitalPinToBitMask(cd);
+		spicdPort = portOutputRegister(digitalPinToPort(_cd));
+		spicdPinSet = digitalPinToBitMask(_cd);
 		spicdPinUnset = ~spicdPinSet;	
 	}
 	if(miso < 0)
@@ -86,16 +95,16 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_
 	}
 	else
 	{
-		spimisoPort = portOutputRegister(digitalPinToPort(miso));
-		spimisoPinSet = digitalPinToBitMask(miso);
+		spimisoPort = portOutputRegister(digitalPinToPort(_miso));
+		spimisoPinSet = digitalPinToBitMask(_miso);
 		spimisoPinUnset = ~spimisoPinSet;
 	}
-	spimosiPort = portOutputRegister(digitalPinToPort(mosi));
-	spimosiPinSet = digitalPinToBitMask(mosi);
+	spimosiPort = portOutputRegister(digitalPinToPort(_mosi));
+	spimosiPinSet = digitalPinToBitMask(_mosi);
 	spimosiPinUnset = ~spimosiPinSet;
 
-	spiclkPort = portOutputRegister(digitalPinToPort(clk));
-	spiclkPinSet = digitalPinToBitMask(clk);
+	spiclkPort = portOutputRegister(digitalPinToPort(_clk));
+	spiclkPinSet = digitalPinToBitMask(_clk);
 	spiclkPinUnset = ~spiclkPinSet;
 
 	*spicsPort     |=  spicsPinSet; // Set all control bits to HIGH (idle)
@@ -153,15 +162,102 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_
 	setWriteDir();
 }
 
+// Constructor for software spi.
+// if modules is readable or you know the width and height of modules,you can use this constructor.
+LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t miso, int8_t mosi, int8_t reset, int8_t clk, int8_t led)
+{
+	_cs = cs;
+	_cd = cd;
+	_miso = miso;
+	_mosi = mosi;
+	_clk = clk;
+	_reset = reset;
+	_led = led;
+	hw_spi = false; //software spi
+
+	spicsPort = portOutputRegister(digitalPinToPort(_cs));
+	spicsPinSet = digitalPinToBitMask(_cs);
+	spicsPinUnset = ~spicsPinSet;
+		
+	if(cd < 0)
+	{
+		spicdPort = 0;
+		spicdPinSet = 0;
+		spicdPinUnset = 0;
+	}
+	else
+	{
+		spicdPort = portOutputRegister(digitalPinToPort(_cd));
+		spicdPinSet = digitalPinToBitMask(_cd);
+		spicdPinUnset = ~spicdPinSet;	
+	}
+	if(miso < 0)
+	{
+		spimisoPort = 0;
+		spimisoPinSet = 0;
+		spimisoPinUnset = 0;
+	}
+	else
+	{
+		spimisoPort = portOutputRegister(digitalPinToPort(_miso));
+		spimisoPinSet = digitalPinToBitMask(_miso);
+		spimisoPinUnset = ~spimisoPinSet;
+	}
+	
+	spimosiPort = portOutputRegister(digitalPinToPort(_mosi));
+	spimosiPinSet = digitalPinToBitMask(_mosi);
+	spimosiPinUnset = ~spimosiPinSet;
+
+	spiclkPort = portOutputRegister(digitalPinToPort(_clk));
+	spiclkPinSet = digitalPinToBitMask(_clk);
+	spiclkPinUnset = ~spiclkPinSet;
+
+	*spicsPort     |=  spicsPinSet; // Set all control bits to HIGH (idle)
+	*spicdPort     |=  spicdPinSet; // Signals are ACTIVE LOW
+	*spimisoPort   |=  spimisoPinSet;
+	*spimosiPort   |=  spimosiPinSet;
+	*spiclkPort    |=  spiclkPinSet;
+
+	pinMode(cs, OUTPUT);	  // Enable outputs
+	pinMode(cd, OUTPUT);
+	pinMode(miso, INPUT);
+	pinMode(mosi, OUTPUT);
+	pinMode(clk, OUTPUT);
+	if(reset >= 0) 
+	{
+		digitalWrite(reset, HIGH);
+		pinMode(reset, OUTPUT);
+	}
+	if(led >= 0)
+	{
+		//digitalWrite(led, HIGH);
+		pinMode(led, OUTPUT);
+	}
+	rotation = 0;
+ 	lcd_model = 0xFFFF;
+    setWriteDir();
+	WIDTH = wid;
+	HEIGHT = heg;
+ 	width = WIDTH;
+	height = HEIGHT;
+}
+#endif
+
 // Constructor for hardware spi.
 // if modules is unreadable or you don't know the width and height of modules,you can use this constructor.
 LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8_t led)
 {
+	_cs = cs;
+	_cd = cd;
+	_miso = -1;
+	_mosi = -1;
+	_clk = -1;
 	_reset = reset;
 	_led = led;
 	hw_spi = true; //hardware spi
-	spicsPort = portOutputRegister(digitalPinToPort(cs));
-	spicsPinSet = digitalPinToBitMask(cs);
+#if defined(__AVR__)
+	spicsPort = portOutputRegister(digitalPinToPort(_cs));
+	spicsPinSet = digitalPinToBitMask(_cs);
 	spicsPinUnset = ~spicsPinSet;
 	if(cd < 0)
 	{
@@ -171,8 +267,8 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
 	}
 	else
 	{
-		spicdPort = portOutputRegister(digitalPinToPort(cd));
-		spicdPinSet = digitalPinToBitMask(cd);
+		spicdPort = portOutputRegister(digitalPinToPort(_cd));
+		spicdPinSet = digitalPinToBitMask(_cd);
 		spicdPinUnset = ~spicdPinSet;	
 	}
 	spimisoPort = 0;
@@ -187,7 +283,10 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
 	
 	*spicsPort     |=  spicsPinSet; // Set all control bits to HIGH (idle)
 	*spicdPort     |=  spicdPinSet; // Signals are ACTIVE LOW
-
+#elif defined(ARDUINO_ARCH_ESP8266)
+	digitalWrite(_cs, HIGH);
+	digitalWrite(_cd, HIGH);
+#endif
 	pinMode(cs, OUTPUT);	  // Enable outputs
 	pinMode(cd, OUTPUT);
 
@@ -240,90 +339,21 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
 	setWriteDir();
 }
 
-// Constructor for software spi.
-// if modules is readable or you know the width and height of modules,you can use this constructor.
-LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t miso, int8_t mosi, int8_t reset, int8_t clk, int8_t led)
-{
-	_reset	 = reset;
-	_led = led;
-	hw_spi = false; //software spi
-
-	spicsPort = portOutputRegister(digitalPinToPort(cs));
-	spicsPinSet = digitalPinToBitMask(cs);
-	spicsPinUnset = ~spicsPinSet;
-		
-	if(cd < 0)
-	{
-		spicdPort = 0;
-		spicdPinSet = 0;
-		spicdPinUnset = 0;
-	}
-	else
-	{
-		spicdPort = portOutputRegister(digitalPinToPort(cd));
-		spicdPinSet = digitalPinToBitMask(cd);
-		spicdPinUnset = ~spicdPinSet;	
-	}
-	if(miso < 0)
-	{
-		spimisoPort = 0;
-		spimisoPinSet = 0;
-		spimisoPinUnset = 0;
-	}
-	else
-	{
-		spimisoPort = portOutputRegister(digitalPinToPort(miso));
-		spimisoPinSet = digitalPinToBitMask(miso);
-		spimisoPinUnset = ~spimisoPinSet;
-	}
-	
-	spimosiPort = portOutputRegister(digitalPinToPort(mosi));
-	spimosiPinSet = digitalPinToBitMask(mosi);
-	spimosiPinUnset = ~spimosiPinSet;
-
-	spiclkPort = portOutputRegister(digitalPinToPort(clk));
-	spiclkPinSet = digitalPinToBitMask(clk);
-	spiclkPinUnset = ~spiclkPinSet;
-
-	*spicsPort     |=  spicsPinSet; // Set all control bits to HIGH (idle)
-	*spicdPort     |=  spicdPinSet; // Signals are ACTIVE LOW
-	*spimisoPort   |=  spimisoPinSet;
-	*spimosiPort   |=  spimosiPinSet;
-	*spiclkPort    |=  spiclkPinSet;
-
-	pinMode(cs, OUTPUT);	  // Enable outputs
-	pinMode(cd, OUTPUT);
-	pinMode(miso, INPUT);
-	pinMode(mosi, OUTPUT);
-	pinMode(clk, OUTPUT);
-	if(reset >= 0) 
-	{
-		digitalWrite(reset, HIGH);
-		pinMode(reset, OUTPUT);
-	}
-	if(led >= 0)
-	{
-		//digitalWrite(led, HIGH);
-		pinMode(led, OUTPUT);
-	}
-	rotation = 0;
- 	lcd_model = 0xFFFF;
-    setWriteDir();
-	WIDTH = wid;
-	HEIGHT = heg;
- 	width = WIDTH;
-	height = HEIGHT;
-}
-
 // Constructor for hardware spi.
 // if modules is readable or you know the width and height of modules,you can use this constructor.
 LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t reset,int8_t led)
 {
-	_reset	 = reset;
+	_cs = cs;
+	_cd = cd;
+	_miso = -1;
+	_mosi = -1;
+	_clk = -1;
+	_reset = reset;
 	_led = led;
 	hw_spi = true; //hardware spi
-	spicsPort = portOutputRegister(digitalPinToPort(cs));
-	spicsPinSet = digitalPinToBitMask(cs);
+#if defined(__AVR__)
+	spicsPort = portOutputRegister(digitalPinToPort(_cs));
+	spicsPinSet = digitalPinToBitMask(_cs);
 	spicsPinUnset = ~spicsPinSet;
 	if(cd < 0)
 	{
@@ -333,8 +363,8 @@ LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t re
 	}
 	else
 	{
-		spicdPort = portOutputRegister(digitalPinToPort(cd));
-		spicdPinSet = digitalPinToBitMask(cd);
+		spicdPort = portOutputRegister(digitalPinToPort(_cd));
+		spicdPinSet = digitalPinToBitMask(_cd);
 		spicdPinUnset = ~spicdPinSet;	
 	}
 	spimisoPort = 0;
@@ -349,6 +379,10 @@ LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t re
 
 	*spicsPort     |=  spicsPinSet; // Set all control bits to HIGH (idle)
 	*spicdPort     |=  spicdPinSet; // Signals are ACTIVE LOW
+#elif defined(ARDUINO_ARCH_ESP8266)
+		digitalWrite(_cs, HIGH);
+		digitalWrite(_cd, HIGH);
+#endif
 
 	pinMode(cs, OUTPUT);	  // Enable outputs
 	pinMode(cd, OUTPUT);	
