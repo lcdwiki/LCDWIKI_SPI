@@ -29,6 +29,7 @@
 #define ID_9486    5
 #define ID_7735    6
 #define ID_1283A   7
+#define ID_1106    8
 #define ID_UNKNOWN 0xFF
 
 //LCD controller chip mode identifiers
@@ -41,6 +42,7 @@
 #define ILI9486 6
 #define ST7735S 7
 #define SSD1283A 8
+#define SH1106 9
 
 typedef struct _lcd_info
 {
@@ -74,6 +76,8 @@ class LCDWIKI_SPI:public LCDWIKI_GUI
 	void Set_Rotation(uint8_t r); 
 	uint8_t Get_Rotation(void) const;
 	void Invert_Display(boolean i);
+	void SH1106_Display(void);
+	void SH1106_Draw_Bitmap(uint8_t x,uint8_t y,uint8_t width, uint8_t height, uint8_t *BMP, uint8_t mode);
 	uint16_t Read_Reg(uint16_t reg, int8_t index);
 	int16_t Read_GRAM(int16_t x, int16_t y, uint16_t *block, int16_t w, int16_t h);
 	void Set_Addr_Window(int16_t x1, int16_t y1, int16_t x2, int16_t y2);

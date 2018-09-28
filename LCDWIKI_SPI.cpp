@@ -27,6 +27,9 @@
 #define TFTLCD_DELAY8   0x7F
 #define MAX_REG_NUM     24
 
+
+static uint8_t SH1106_buffer[1024] = {0};
+
 //static uint8_t have_reset;
 
 //#define LEFT_SHIFT(x) (1<<x) //x value 0:mipi dcs rev1
@@ -56,6 +59,7 @@ lcd_info current_lcd_info[] =
 							 0x9486,320,480,
 							 0x7735,128,160,
 							 0x1283,130,130,
+							 0x1106,128,64,
 						 };
 
 #if !defined(USE_HWSPI_ONLY)
@@ -541,8 +545,15 @@ void LCDWIKI_SPI::Write_Cmd_Data(uint16_t cmd, uint16_t data)
 void LCDWIKI_SPI::Push_Command(uint8_t cmd, uint8_t *block, int8_t N)
 {
   	CS_ACTIVE;
-    writeCmd16(cmd);
-    while (N-- > 0) 
+	if(lcd_driver == ID_1106)
+	{
+    	writeCmd8(cmd);
+	}
+	else
+	{
+		writeCmd16(cmd);
+	}
+	while (N-- > 0) 
 	{
         uint8_t u8 = *block++;
         writeData8(u8); 
@@ -653,6 +664,10 @@ void LCDWIKI_SPI::Set_Addr_Window(int16_t x1, int16_t y1, int16_t x2, int16_t y2
 		writeData8(x1);
 		writeData8(y1);
 		writeCmd8(CC);
+	}
+	else if(lcd_driver == ID_1106)
+	{
+		return;
 	}
 	else
 	{
@@ -878,6 +893,17 @@ void LCDWIKI_SPI::Draw_Pixe(int16_t x, int16_t y, uint16_t color)
 	{
 		writeData16(color);
 	}
+	else if(lcd_driver == ID_1106)
+	{
+		if(color)
+		{
+			SH1106_buffer[(y/8)*WIDTH+x]|= (1<<(y%8))&0xff;
+		}
+		else
+		{
+			SH1106_buffer[(y/8)*WIDTH+x]&= ~((1<<(y%8))&0xff);
+		}
+	}
 	else
 	{
 		writeCmdData16(CC, color);
@@ -921,7 +947,20 @@ void LCDWIKI_SPI::Fill_Rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t
     h = end - y;
     Set_Addr_Window(x, y, x + w - 1, y + h - 1);
 	CS_ACTIVE;
-    if(lcd_driver == ID_932X)
+	if(lcd_driver == ID_1106)
+	{
+		int16_t i,j;
+		for(i=0;i<h;i++)
+		{
+			for(j=0;j<w;j++)
+			{
+				Draw_Pixe(x+j, y+i,color);
+			}		
+		}
+		CS_IDLE;
+		return;
+	}
+    else if(lcd_driver == ID_932X)
 	{
 		writeCmd8(ILI932X_START_OSC);
 			
@@ -976,6 +1015,10 @@ void LCDWIKI_SPI::Vert_Scroll(int16_t top, int16_t scrollines, int16_t offset)
 	else if(lcd_driver == ID_1283A)
 	{
 		Write_Cmd_Data(SC1,vsp);
+	}
+	else if(lcd_driver == ID_1106)
+	{
+		return;
 	}
 	else
 	{
@@ -1077,6 +1120,10 @@ void LCDWIKI_SPI::Set_Rotation(uint8_t r)
 			 	break;
 		}
 	}
+	else if(lcd_driver == ID_1106)
+	{
+		return;
+	}
 	else
 	{
 		uint8_t val;
@@ -1152,10 +1199,63 @@ void LCDWIKI_SPI::Invert_Display(boolean i)
 		}
 		writeCmdData16(0x01,reg);
 	}
+	else if(lcd_driver == ID_1106)
+	{
+		writeCmd8(val ? 0xA6 : 0xA7);
+	}
 	else
 	{
 		writeCmd8(val ? 0x21 : 0x20);
 	}
+	CS_IDLE;
+}
+
+void LCDWIKI_SPI::SH1106_Draw_Bitmap(uint8_t x,uint8_t y,uint8_t width, uint8_t height, uint8_t *BMP, uint8_t mode)
+{
+  uint8_t i,j,k;
+  uint8_t tmp;
+  for(i=0;i<(height+7)/8;i++)
+  {
+		for(j=0;j<width;j++)
+		{
+		    	if(mode)
+				{
+					tmp = pgm_read_byte(&BMP[i*width+j]);
+				}
+				else
+				{
+					tmp = ~(pgm_read_byte(&BMP[i*width+j]));
+				}
+				for(k=0;k<8;k++)
+				{
+					if(tmp&0x01)
+					{
+						Draw_Pixe(x+j, y+i*8+k,1);
+					}
+					else
+					{
+						Draw_Pixe(x+j, y+i*8+k,0);
+					}
+					tmp>>=1;
+				}
+		}
+   } 
+}
+
+void LCDWIKI_SPI::SH1106_Display(void)
+{
+	u8 i,n;	
+	CS_ACTIVE;
+	for(i=0;i<8;i++)  
+	{  
+		writeCmd8(YC+i);    
+		writeCmd8(0x02); 
+		writeCmd8(XC); 
+		for(n=0;n<WIDTH;n++)
+		{
+			writeData8(SH1106_buffer[i*WIDTH+n]); 
+		}
+	} 
 	CS_IDLE;
 }
 
@@ -1491,6 +1591,44 @@ void LCDWIKI_SPI::start(uint16_t ID)
             	0x13, 0x3100, 
 			};
 			init_table16(SSD1283A_regValues, sizeof(SSD1283A_regValues));
+			break;
+		case 0x1106:
+		 	lcd_driver = ID_1106;
+			XC=0x10,YC=0xB0,CC=0,RC=0,SC1=0,SC2=0,MD=0,VL=1,R24BIT=0;
+			static const uint8_t SH1106_regValues[] PROGMEM = 
+			{
+				0x8D, 0,            
+            	0x10, 0,  
+            	0xAE, 0,           
+            	0x02, 0,      
+            	0x10, 0,     
+            	0x40, 0,        
+            	0x81, 0,     
+            	0xCF, 0,         
+            	0xA1, 0,   
+            	0xC8, 0,
+            	0xA6, 0,
+            	0xA8, 0,
+            	0x3F, 0,
+            	0xD3, 0,
+            	0x00, 0,
+            	0xD5, 0,
+            	0x80, 0,
+            	0xD9, 0,
+            	0xF1, 0,
+            	0xDA, 0,
+            	0x12, 0,
+            	0xDB, 0,
+            	0x40, 0,
+            	0x20, 0,
+            	0x02, 0,
+            	0x8D, 0,
+            	0x14, 0,
+            	0xA4, 0,
+            	0xA6, 0,
+            	0xAF, 0,
+			};
+			init_table8(SH1106_regValues, sizeof(SH1106_regValues));
 			break;
 		default:
 			lcd_driver = ID_UNKNOWN;
