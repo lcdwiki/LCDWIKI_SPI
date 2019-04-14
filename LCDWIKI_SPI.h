@@ -23,6 +23,9 @@
 #elif defined(__AVR__)
 typedef uint8_t RWREG_t;
 #define USE_RWREG
+#elif defined(CORE_TEENSY)
+typedef uint8_t RWREG_t;
+#define USE_RWREG
 #elif defined(__arm__)
 typedef uint32_t RWREG_t;
 #define USE_RWREG
