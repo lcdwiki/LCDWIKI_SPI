@@ -259,7 +259,7 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
 	_reset = reset;
 	_led = led;
 	hw_spi = true; //hardware spi
-#if defined(__AVR__)
+#if defined(USE_RWREG)
 	spicsPort = portOutputRegister(digitalPinToPort(_cs));
 	spicsPinSet = digitalPinToBitMask(_cs);
 	spicsPinUnset = ~spicsPinSet;
@@ -287,7 +287,7 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
 	
 	*spicsPort     |=  spicsPinSet; // Set all control bits to HIGH (idle)
 	*spicdPort     |=  spicdPinSet; // Signals are ACTIVE LOW
-#elif defined(ARDUINO_ARCH_ESP8266)
+#else
 	digitalWrite(_cs, HIGH);
 	digitalWrite(_cd, HIGH);
 #endif
@@ -304,11 +304,12 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
 		//digitalWrite(led, HIGH);
 		pinMode(led, OUTPUT);
 	}
+/*
 	SPI.begin();
     SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
     SPI.setBitOrder(MSBFIRST);
     SPI.setDataMode(SPI_MODE0);
-	
+*/	
 	rotation = 0;
  	lcd_model = current_lcd_info[model].lcd_id;
 	WIDTH = current_lcd_info[model].lcd_wid;
@@ -355,7 +356,7 @@ LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t re
 	_reset = reset;
 	_led = led;
 	hw_spi = true; //hardware spi
-#if defined(__AVR__)
+#if defined(USE_RWREG)
 	spicsPort = portOutputRegister(digitalPinToPort(_cs));
 	spicsPinSet = digitalPinToBitMask(_cs);
 	spicsPinUnset = ~spicsPinSet;
@@ -383,7 +384,7 @@ LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t re
 
 	*spicsPort     |=  spicsPinSet; // Set all control bits to HIGH (idle)
 	*spicdPort     |=  spicdPinSet; // Signals are ACTIVE LOW
-#elif defined(ARDUINO_ARCH_ESP8266)
+#else
 		digitalWrite(_cs, HIGH);
 		digitalWrite(_cd, HIGH);
 #endif
@@ -401,11 +402,12 @@ LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t re
 		//digitalWrite(led, HIGH);
 		pinMode(led, OUTPUT);
 	}
+/*
 	SPI.begin();
     SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
     SPI.setBitOrder(MSBFIRST);
     SPI.setDataMode(SPI_MODE0);
-	
+*/	
 	rotation = 0;
  	lcd_model = 0xFFFF;
     setWriteDir();
@@ -437,6 +439,12 @@ void LCDWIKI_SPI::reset(void)
     CS_IDLE;
     RD_IDLE;
     WR_IDLE;
+  if (_mosi < 0) { //hardware SPI
+	SPI.begin();
+    SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
+    SPI.setBitOrder(MSBFIRST);
+    SPI.setDataMode(SPI_MODE0);
+  }
   if(_reset >=0) 
   {
     digitalWrite(_reset, LOW);
@@ -1244,7 +1252,7 @@ void LCDWIKI_SPI::SH1106_Draw_Bitmap(uint8_t x,uint8_t y,uint8_t width, uint8_t 
 
 void LCDWIKI_SPI::SH1106_Display(void)
 {
-	u8 i,n;	
+	uint8_t i,n;	
 	CS_ACTIVE;
 	for(i=0;i<8;i++)  
 	{  
