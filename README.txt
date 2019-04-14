@@ -1,3 +1,6 @@
+This fork should work on AVR, Due, Zero, M0, Teensy3.x, STM32, ESP32
+ESP8266 will timeout without lots of yield() calls.
+
 This is a library for the SPI lcd display.
 This library support these lcd controller:
 ILI9325 
