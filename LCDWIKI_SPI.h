@@ -12,7 +12,7 @@
 
 #if defined(__AVR__) || defined(__arm__)
 #include <avr/pgmspace.h>
-#elif defined(ESP8266)
+#elif defined(ESP8266) || defined(ESP32)
  #include <pgmspace.h>
 #else
 #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
@@ -30,7 +30,11 @@ typedef uint8_t RWREG_t;
 typedef uint32_t RWREG_t;
 #define USE_RWREG
 #elif defined(ESP8266)
-typedef uint8_t RWREG_t;
+typedef uint32_t RWREG_t;
+//#define USE_RWREG
+#elif defined(ESP32)
+typedef uint32_t RWREG_t;
+#define USE_RWREG
 #else
 #error unsupported target
 #endif
