@@ -10,14 +10,35 @@
 #include "WProgram.h"
 #endif
 
-#ifdef __AVR__
+#if defined(__AVR__) || defined(__arm__)
 #include <avr/pgmspace.h>
-#elif defined(ESP8266)
+#elif defined(ESP8266) || defined(ESP32)
  #include <pgmspace.h>
 #else
 #define pgm_read_byte(addr) (*(const unsigned char *)(addr))
 #define pgm_read_word(addr) (*(const unsigned short *)(addr))
 #endif
+
+#if 0
+#elif defined(__AVR__)
+typedef uint8_t RWREG_t;
+#define USE_RWREG
+#elif defined(CORE_TEENSY)
+typedef uint8_t RWREG_t;
+#define USE_RWREG
+#elif defined(__arm__)
+typedef uint32_t RWREG_t;
+#define USE_RWREG
+#elif defined(ESP8266)
+typedef uint32_t RWREG_t;
+//#define USE_RWREG
+#elif defined(ESP32)
+typedef uint32_t RWREG_t;
+#define USE_RWREG
+#else
+#error unsupported target
+#endif
+
 #include "LCDWIKI_GUI.h"
 
 // LCD controller chip identifiers
@@ -95,8 +116,8 @@ class LCDWIKI_SPI:public LCDWIKI_GUI
 	private:
 	uint16_t XC,YC,CC,RC,SC1,SC2,MD,VL,R24BIT;
  
-		 volatile uint8_t *spicsPort, *spicdPort, *spimisoPort , *spimosiPort, *spiclkPort;
-			      uint8_t  spicsPinSet, spicdPinSet  ,spimisoPinSet , spimosiPinSet , spiclkPinSet,
+		 volatile RWREG_t *spicsPort, *spicdPort, *spimisoPort , *spimosiPort, *spiclkPort;
+			      RWREG_t  spicsPinSet, spicdPinSet  ,spimisoPinSet , spimosiPinSet , spiclkPinSet,
 						   spicsPinUnset, spicdPinUnset, spimisoPinUnset,  spimosiPinUnset,spiclkPinUnset;
 				  int8_t   _cs,_cd,_miso,_mosi,_clk,_reset,_led;
 };

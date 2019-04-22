@@ -11,7 +11,7 @@
 #define RD_IDLE     0
 #define WR_ACTIVE   0
 #define WR_IDLE     0
-#if defined(__AVR__)
+#if defined(USE_RWREG)
 #define CD_COMMAND  *spicdPort &= spicdPinUnset     
 #define CD_DATA     *spicdPort |= spicdPinSet
 #define CS_ACTIVE   *spicsPort &= spicsPinUnset
@@ -22,7 +22,7 @@
 #define CLK_LOW  *spiclkPort &= spiclkPinUnset
 #define CLK_HIGH    *spiclkPort |= spiclkPinSet
 
-#elif defined(ARDUINO_ARCH_ESP8266)
+#else
 #define CD_COMMAND  (digitalWrite(_cd,LOW))    
 #define CD_DATA     (digitalWrite(_cd,HIGH)) 
 #define CS_ACTIVE   (digitalWrite(_cs,LOW)) 
