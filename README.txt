@@ -1,6 +1,17 @@
 This fork should work on AVR, Due, Zero, M0, Teensy3.x, STM32, ESP32
 ESP8266 will timeout without lots of yield() calls.
 
+Select ESP8266=160MHz and set SPI=27MHz to reduce timeout risk
+I suspect SSD1283A might not run with fast SPI clock speeds
+Bit-bang has no chance on ESP8266.
+
+Life is less frustrating with Uno, Zero, Due, ESP32, Nucleo
+
+Please report whether SSD1283A display is worth supporting e.g. wide angle, daylight, ...
+
+I have not altered the original examples.
+I have added LCDWIKI_XBM.ino example.   Please study the comments
+
 This is a library for the SPI lcd display.
 This library support these lcd controller:
 ILI9325 
