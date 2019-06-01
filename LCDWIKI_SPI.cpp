@@ -441,9 +441,13 @@ void LCDWIKI_SPI::reset(void)
     WR_IDLE;
   if (_mosi < 0) { //hardware SPI
 	SPI.begin();
-    SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
+#if 1
+    SPI.beginTransaction( { 27000000, MSBFIRST, SPI_MODE0 } );
+#else
+    SPI.setClockDivider(SPI_CLOCK_DIV2); // 4 MHz (half speed)
     SPI.setBitOrder(MSBFIRST);
     SPI.setDataMode(SPI_MODE0);
+#endif
   }
   if(_reset >=0) 
   {
