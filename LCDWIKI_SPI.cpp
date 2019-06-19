@@ -60,6 +60,10 @@ lcd_info current_lcd_info[] =
 							 0x7735,128,160,
 							 0x1283,130,130,
 							 0x1106,128,64,
+							 0x7735,128,128,
+							 0x9488,320,480,
+							 0x9488,320,480,
+							 0x9225,176,220,
 						 };
 
 #if !defined(USE_HWSPI_ONLY)
@@ -75,6 +79,7 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_
 	_reset = reset;
 	_led = led;
 	hw_spi = false; //software spi
+	MODEL = model;
 	spicsPort = portOutputRegister(digitalPinToPort(_cs));
 	spicsPinSet = digitalPinToBitMask(_cs);
 	spicsPinUnset = ~spicsPinSet;
@@ -132,6 +137,8 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t miso, int8_
 		//digitalWrite(led, HIGH);
 		pinMode(led, OUTPUT);
 	}
+	xoffset = 0;
+	yoffset = 0;
 	rotation = 0;
  	lcd_model = current_lcd_info[model].lcd_id;
 	WIDTH = current_lcd_info[model].lcd_wid;
@@ -237,6 +244,8 @@ LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t mi
 		//digitalWrite(led, HIGH);
 		pinMode(led, OUTPUT);
 	}
+	xoffset = 0;
+	yoffset = 0;
 	rotation = 0;
  	lcd_model = 0xFFFF;
     setWriteDir();
@@ -259,6 +268,7 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
 	_reset = reset;
 	_led = led;
 	hw_spi = true; //hardware spi
+	MODEL = model;
 #if defined(__AVR__)
 	spicsPort = portOutputRegister(digitalPinToPort(_cs));
 	spicsPinSet = digitalPinToBitMask(_cs);
@@ -308,7 +318,9 @@ LCDWIKI_SPI::LCDWIKI_SPI(uint16_t model,int8_t cs, int8_t cd, int8_t reset, int8
     SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
     SPI.setBitOrder(MSBFIRST);
     SPI.setDataMode(SPI_MODE0);
-	
+
+	xoffset = 0;
+	yoffset = 0;
 	rotation = 0;
  	lcd_model = current_lcd_info[model].lcd_id;
 	WIDTH = current_lcd_info[model].lcd_wid;
@@ -405,7 +417,9 @@ LCDWIKI_SPI::LCDWIKI_SPI(int16_t wid,int16_t heg,int8_t cs, int8_t cd, int8_t re
     SPI.setClockDivider(SPI_CLOCK_DIV4); // 4 MHz (half speed)
     SPI.setBitOrder(MSBFIRST);
     SPI.setDataMode(SPI_MODE0);
-	
+
+	xoffset = 0;
+	yoffset = 0;
 	rotation = 0;
  	lcd_model = 0xFFFF;
     setWriteDir();
@@ -500,7 +514,7 @@ uint8_t LCDWIKI_SPI::Spi_Read(void)
 {
 	if(hw_spi)
 	{
-		return SPI.transfer(0);
+		return SPI.transfer(0xFF);
 	}
 	else
 	{
@@ -570,7 +584,7 @@ void LCDWIKI_SPI::Push_Command(uint8_t cmd, uint8_t *block, int8_t N)
 void LCDWIKI_SPI::Set_Addr_Window(int16_t x1, int16_t y1, int16_t x2, int16_t y2)
 {
 	CS_ACTIVE;
-	if(lcd_driver == ID_932X) 
+	if((lcd_driver == ID_932X) || (lcd_driver == ID_9225)) 
 	{
 
 	    // Values passed are in current (possibly rotated) coordinate
@@ -616,12 +630,26 @@ void LCDWIKI_SPI::Set_Addr_Window(int16_t x1, int16_t y1, int16_t x2, int16_t y2
 			      y  = y2;
 			      break;
     	}
-    writeCmdData16(ILI932X_HOR_START_AD, x1); // Set address window
-    writeCmdData16(ILI932X_HOR_END_AD, x2);
-    writeCmdData16(ILI932X_VER_START_AD, y1);
-    writeCmdData16(ILI932X_VER_END_AD, y2);
-    writeCmdData16(ILI932X_GRAM_HOR_AD, x ); // Set address counter to top left
-    writeCmdData16(ILI932X_GRAM_VER_AD, y );
+		if(lcd_driver == ID_932X)
+		{
+   			writeCmdData16(ILI932X_HOR_START_AD, x1); // Set address window
+    		writeCmdData16(ILI932X_HOR_END_AD, x2);
+    		writeCmdData16(ILI932X_VER_START_AD, y1);
+    		writeCmdData16(ILI932X_VER_END_AD, y2);
+			writeCmdData16(ILI932X_GRAM_HOR_AD, x ); // Set address counter to top left
+    		writeCmdData16(ILI932X_GRAM_VER_AD, y );
+		}
+		else if(lcd_driver == ID_9225)
+		{
+			writeCmdData16(0x36, x2);
+			writeCmdData16(0x37, x1);
+			writeCmdData16(0x38, y2);
+			writeCmdData16(0x39, y1);
+			writeCmdData16(XC, x);
+			writeCmdData16(YC, y);
+			writeCmd8(CC);
+
+		}
  	} 
 	else if(lcd_driver == ID_7575)
 	{
@@ -668,6 +696,13 @@ void LCDWIKI_SPI::Set_Addr_Window(int16_t x1, int16_t y1, int16_t x2, int16_t y2
 	else if(lcd_driver == ID_1106)
 	{
 		return;
+	}
+	else if(lcd_driver == ID_7735_128)
+	{
+		uint8_t x_buf[] = {(x1+xoffset)>>8,(x1+xoffset)&0xFF,(x2+xoffset)>>8,(x2+xoffset)&0xFF};
+		uint8_t y_buf[] = {(y1+yoffset)>>8,(y1+yoffset)&0xFF,(y2+yoffset)>>8,(y2+yoffset)&0xFF};
+		Push_Command(XC, x_buf, 4);
+		Push_Command(YC, y_buf, 4);
 	}
 	else
 	{
@@ -723,9 +758,16 @@ void LCDWIKI_SPI::Push_Any_Color(uint16_t * block, int16_t n, bool first, uint8_
 		{
 			color = (*block++);			
 
-		}		
-        writeData16(color);
-    }
+		}
+		if(MODEL == ILI9488_18)
+		{
+			writeData18(color);
+		}
+		else
+		{
+        	writeData16(color);
+		}
+	}
     CS_IDLE;
 }
 
@@ -759,8 +801,15 @@ void LCDWIKI_SPI::Push_Any_Color(uint8_t * block, int16_t n, bool first, uint8_t
             l = (*block++);
 		}
         color = (isbigend) ? (h << 8 | l) :  (l << 8 | h);
-        writeData16(color);
-    }
+		if(MODEL == ILI9488_18)
+		{
+			writeData18(color);
+		}
+		else
+		{
+        	writeData16(color);
+		}
+	}
     CS_IDLE;
 }
 
@@ -874,6 +923,10 @@ uint16_t LCDWIKI_SPI::Read_ID(void)
 	{
 		return 0x9486;
 	}
+	else if(ret == 0x9488)
+	{
+		return 0x9488;
+	}
 	else
 	{
 		return Read_Reg(0, 0);
@@ -906,7 +959,15 @@ void LCDWIKI_SPI::Draw_Pixe(int16_t x, int16_t y, uint16_t color)
 	}
 	else
 	{
-		writeCmdData16(CC, color);
+		if(MODEL == ILI9488_18)
+		{
+			writeCmd8(CC);
+			writeData18(color);
+		}
+		else
+		{
+			writeCmdData16(CC, color);
+		}
 	}
 	CS_IDLE;
 }
@@ -962,8 +1023,7 @@ void LCDWIKI_SPI::Fill_Rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t
 	}
     else if(lcd_driver == ID_932X)
 	{
-		writeCmd8(ILI932X_START_OSC);
-			
+		writeCmd8(ILI932X_START_OSC);		
 	} 		
 	writeCmd8(CC);		
 	if (h > w) 
@@ -977,8 +1037,15 @@ void LCDWIKI_SPI::Fill_Rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t
 		end = w;
 		do 
 		{
-   			writeData16(color);
-        } while (--end != 0);
+			if(MODEL == ILI9488_18)
+			{
+				writeData18(color);
+			}
+			else
+			{
+   				writeData16(color);
+			}
+		} while (--end != 0);
 	}
 	if(lcd_driver == ID_932X)
 	{
@@ -994,9 +1061,17 @@ void LCDWIKI_SPI::Fill_Rect(int16_t x, int16_t y, int16_t w, int16_t h, uint16_t
 //Scroll display 
 void LCDWIKI_SPI::Vert_Scroll(int16_t top, int16_t scrollines, int16_t offset)
 {
-    int16_t bfa = HEIGHT - top - scrollines; 
+    int16_t bfa;
     int16_t vsp;
     int16_t sea = top;
+	if(lcd_driver == ID_7735_128)
+	{
+		bfa = HEIGHT - top - scrollines+4; 
+	}
+	else
+	{
+		bfa = HEIGHT - top - scrollines; 
+	}
     if (offset <= -scrollines || offset >= scrollines)
     {
 		offset = 0; //valid scroll
@@ -1019,6 +1094,12 @@ void LCDWIKI_SPI::Vert_Scroll(int16_t top, int16_t scrollines, int16_t offset)
 	else if(lcd_driver == ID_1106)
 	{
 		return;
+	}
+	else if(lcd_driver == ID_9225)
+	{
+		Write_Cmd_Data(0x32, top);
+		Write_Cmd_Data(SC1, sea);
+		Write_Cmd_Data(SC2, vsp-top);
 	}
 	else
 	{
@@ -1064,7 +1145,7 @@ void LCDWIKI_SPI::Set_Rotation(uint8_t r)
     width = (rotation & 1) ? HEIGHT : WIDTH;
     height = (rotation & 1) ? WIDTH : HEIGHT;
 	CS_ACTIVE;
-	if(lcd_driver == ID_932X)
+	if((lcd_driver == ID_932X)||(lcd_driver == ID_9225))
 	{
 		uint16_t val;
 		switch(rotation) 
@@ -1104,6 +1185,34 @@ void LCDWIKI_SPI::Set_Rotation(uint8_t r)
 		}
 		writeCmdData8(MD, val);
 	}
+	else if(lcd_driver == ID_7735_128)
+	{
+		uint8_t val;
+		switch(rotation)
+		{
+			case 0: 
+				val = 0xD8; //0 degree
+				xoffset = 2;
+				yoffset = 3;
+				break;
+		 	case 1: 
+				val = 0xA8; //90 degree 
+				xoffset = 3;
+				yoffset = 2;
+				break;
+		 	case 2: 
+				val = 0x08; //180 degree 
+				xoffset = 2;
+				yoffset = 1;
+				break;
+		 	case 3: 
+				val = 0x68; //270 degree 
+				xoffset = 1;
+				yoffset = 2;
+				break;			
+		}
+		writeCmdData8(MD, val);
+	}
 	else if(lcd_driver == ID_1283A)
 	{
 		switch(rotation)
@@ -1123,6 +1232,46 @@ void LCDWIKI_SPI::Set_Rotation(uint8_t r)
 	else if(lcd_driver == ID_1106)
 	{
 		return;
+	}
+	else if(lcd_driver == ID_9486)
+	{
+		uint8_t val;
+		switch (rotation) 
+		{
+		   	case 0:
+		     	val = ILI9341_MADCTL_BGR; //0 degree 
+		     	break;
+		   	case 1:
+		     	val = ILI9341_MADCTL_MX | ILI9341_MADCTL_MV | ILI9341_MADCTL_ML | ILI9341_MADCTL_BGR ; //90 degree 
+		     	break;
+		 	case 2:
+		    	val = ILI9341_MADCTL_MY | ILI9341_MADCTL_MX |ILI9341_MADCTL_BGR; //180 degree 
+		    	break;
+		   	case 3:
+		     	val = ILI9341_MADCTL_MY | ILI9341_MADCTL_MV | ILI9341_MADCTL_BGR; //270 degree
+		     	break;
+		 }
+		 writeCmdData8(MD, val); 
+	}
+	else if(lcd_driver == ID_9488)
+	{
+		uint8_t val;
+		switch (rotation) 
+		{			
+			case 0:
+		     	val = ILI9341_MADCTL_MX | ILI9341_MADCTL_MY | ILI9341_MADCTL_BGR ; //0 degree 
+		     	break;
+		   	case 1:
+		     	val = ILI9341_MADCTL_MV | ILI9341_MADCTL_MY | ILI9341_MADCTL_BGR ; //90 degree 
+		     	break;
+		 	case 2:
+		    	val = ILI9341_MADCTL_ML | ILI9341_MADCTL_BGR; //180 degree 
+		    	break;
+		   	case 3:
+		     	val = ILI9341_MADCTL_MX | ILI9341_MADCTL_ML | ILI9341_MADCTL_MV | ILI9341_MADCTL_BGR; //270 degree
+		     	break;
+		 }
+		 writeCmdData8(MD, val); 
 	}
 	else
 	{
@@ -1202,6 +1351,10 @@ void LCDWIKI_SPI::Invert_Display(boolean i)
 	else if(lcd_driver == ID_1106)
 	{
 		writeCmd8(val ? 0xA6 : 0xA7);
+	}
+	else if(lcd_driver == ID_9225)
+	{
+		writeCmdData16(0x07,0x13|(val<<2));
 	}
 	else
 	{
@@ -1512,6 +1665,23 @@ void LCDWIKI_SPI::start(uint16_t ID)
 			XC=ILI9341_COLADDRSET,YC=ILI9341_PAGEADDRSET,CC=ILI9341_MEMORYWRITE,RC=HX8357_RAMRD,SC1=0x33,SC2=0x37,MD=ILI9341_MADCTL,VL=0,R24BIT=0;
 			static const uint8_t ILI9486_regValues[] PROGMEM = 
 			{
+			    0xF1, 6, 0x36, 0x04, 0x00, 0x3C, 0x0F, 0x8F,
+				0xF2, 9, 0x18, 0xA3, 0x12, 0x02, 0xB2, 0x12, 0xFF, 0x10, 0x00, 
+				0xF8, 2, 0x21, 0x04,
+				0xF9, 2, 0x00, 0x08,
+				0x36, 1, 0x08, 
+				0xB4, 1, 0x00,
+				0xC1, 1, 0x41,
+				0xC5, 4, 0x00, 0x91, 0x80, 0x00,
+				0xE0, 15, 0x0F, 0x1F, 0x1C, 0x0C, 0x0F, 0x08, 0x48, 0x98, 0x37, 0x0A, 0x13, 0x04, 0x11, 0x0D, 0x00,
+				0xE1, 15, 0x0F, 0x32, 0x2E, 0x0B, 0x0D, 0x05, 0x47, 0x75, 0x37, 0x06, 0x10 ,0x03, 0x24, 0x20, 0x00,				
+				0x3A, 1, 0x55,
+				0x11,0,
+				0x36, 1, 0x28,
+				TFTLCD_DELAY8, 120,
+				0x29,0
+				
+			/*
 				0x01, 0,            //Soft Reset
             	TFTLCD_DELAY8, 150,  // .kbv will power up with ONLY reset, sleep out, display on
             	0x28, 0,            //Display Off
@@ -1527,11 +1697,108 @@ void LCDWIKI_SPI::start(uint16_t ID)
             	0x11, 0,            //Sleep Out
             	TFTLCD_DELAY8, 150,
             	0x29, 0         //Display On
+            */
 			};
 			init_table8(ILI9486_regValues, sizeof(ILI9486_regValues));
 			break;
+		case 0x9488:
+			lcd_driver = ID_9488;			
+			if(MODEL == ILI9488_18)
+			{
+				static const uint8_t ILI9488_IPF[] PROGMEM ={0x3A,1,0x66};
+				init_table8(ILI9488_IPF, sizeof(ILI9488_IPF));
+			}
+			else
+			{
+				static const uint8_t ILI9488_IPF[] PROGMEM ={0x3A,1,0x55};
+				init_table8(ILI9488_IPF, sizeof(ILI9488_IPF));
+			}
+			//WIDTH = 320,HEIGHT = 480;
+			//width = WIDTH, height = HEIGHT;
+			XC=ILI9341_COLADDRSET,YC=ILI9341_PAGEADDRSET,CC=ILI9341_MEMORYWRITE,RC=HX8357_RAMRD,SC1=0x33,SC2=0x37,MD=ILI9341_MADCTL,VL=0,R24BIT=1;
+			static const uint8_t ILI9488_regValues[] PROGMEM = 
+			{
+				0xF7, 4, 0xA9, 0x51, 0x2C, 0x82,
+				0xC0, 2, 0x11, 0x09,
+				0xC1, 1, 0x41,
+				0xC5, 3, 0x00, 0x0A, 0x80,
+				0xB1, 2, 0xB0, 0x11,
+				0xB4, 1, 0x02,
+				0xB6, 2, 0x02, 0x22,
+				0xB7, 1, 0xC6,
+				0xBE, 2, 0x00, 0x04,
+				0xE9, 1, 0x00,
+				0x36, 1, 0x08,
+				0xE0, 15, 0x00, 0x07, 0x10, 0x09, 0x17, 0x0B, 0x41, 0x89, 0x4B, 0x0A, 0x0C, 0x0E, 0x18, 0x1B, 0x0F,
+				0xE1, 15, 0x00, 0x17, 0x1A, 0x04, 0x0E, 0x06, 0x2F, 0x45, 0x43, 0x02, 0x0A, 0x09, 0x32, 0x36, 0x0F,
+				0x11, 0,
+				TFTLCD_DELAY8, 120,
+				0x29, 0
+			};
+			init_table8(ILI9488_regValues, sizeof(ILI9488_regValues));
+			break;
+		case 0x9225:
+			lcd_driver = ID_9225;
+			//WIDTH = 176,HEIGHT = 220;
+			//width = WIDTH, height = HEIGHT;
+			XC=0x20,YC=0x21,CC=0x22,RC=0x22,SC1=0x31,SC2=0x33,MD=0x03,VL=1,R24BIT=0;
+			static const uint16_t ILI9225_regValues[] PROGMEM = 
+			{
+				0x01, 0x011C,
+				0x02, 0x0100,	
+				0x03, 0x1030,
+				0x08, 0x0808, // set BP and FP
+				0x0B, 0x1100, // frame cycle
+				0x0C, 0x0000, // RGB interface setting R0Ch=0x0110 for RGB 18Bit and R0Ch=0111for RGB16Bit
+				0x0F, 0x1401, // Set frame rate----0801
+				0x15, 0x0000, // set system interface
+				0x20, 0x0000, // Set GRAM Address
+				0x21, 0x0000, // Set GRAM Address
+				//*************Power On sequence ****************//
+				TFTLCD_DELAY16, 50, // delay 50ms
+				0x10, 0x0800, // Set SAP,DSTB,STB----0A00
+				0x11, 0x1F3F, // Set APON,PON,AON,VCI1EN,VC----1038
+				TFTLCD_DELAY16, 50, // delay 50ms
+				0x12, 0x0121, // Internal reference voltage= Vci;----1121
+				0x13, 0x006F, // Set GVDD----0066
+				0x14, 0x4349, // Set VCOMH/VCOML voltage----5F60
+				//-------------- Set GRAM area -----------------//
+				0x30, 0x0000,
+				0x31, 0x00DB,
+				0x32, 0x0000,
+				0x33, 0x0000,
+				0x34, 0x00DB,
+				0x35, 0x0000,
+				0x36, 0x00AF,
+				0x37, 0x0000,
+				0x38, 0x00DB,
+				0x39, 0x0000,
+				// ----------- Adjust the Gamma Curve ----------//
+				0x50, 0x0001, // 0x0400
+				0x51, 0x200B, // 0x060B
+				0x52, 0x0000, // 0x0C0A
+				0x53, 0x0404, // 0x0105
+				0x54, 0x0C0C, // 0x0A0C
+				0x55, 0x000C, // 0x0B06
+				0x56, 0x0101, // 0x0004
+				0x57, 0x0400, // 0x0501
+				0x58, 0x1108, // 0x0E00
+				0x59, 0x050C, // 0x000E
+				TFTLCD_DELAY16, 50, // delay 50ms
+				0x07, 0x1017,
+				//0x22, 0x0000,
+			};
+			init_table16(ILI9225_regValues, sizeof(ILI9225_regValues));
+			break;
 		case 0x7735:
-			lcd_driver = ID_7735;
+			if(HEIGHT == 160)
+			{
+				lcd_driver = ID_7735;
+			}
+			else if(HEIGHT == 128)
+			{
+				lcd_driver = ID_7735_128;
+			}
 			//WIDTH = 128,HEIGHT = 160;
 			//width = WIDTH, height = HEIGHT;
 			XC=ILI9341_COLADDRSET,YC=ILI9341_PAGEADDRSET,CC=ILI9341_MEMORYWRITE,RC=HX8357_RAMRD,SC1=0x33,SC2=0x37,MD=ILI9341_MADCTL,VL=0,R24BIT=0;
@@ -1550,7 +1817,7 @@ void LCDWIKI_SPI::start(uint16_t ID)
             	0xC4, 2, 0x8D, 0xEE,
             	0xC5, 1, 0x1A,
             	0x17 , 1 , 0x05,
-            	0x36, 1, 0x00,
+            	0x36, 1, 0x08,
             	0xE0, 16,0x03, 0x22, 0x07, 0x0A, 0x2E, 0x30, 0x25, 0x2A, 0x28, 0x26, 0x2E, 0x3A, 0x00, 0x01, 0x03, 0x13,
             	0xE1, 16,0x04, 0x16, 0x06, 0x0D, 0x2D, 0x26, 0x23, 0x27, 0x27, 0x25, 0x2D, 0x3B, 0x00, 0x01, 0x04, 0x13,         
             	//TFTLCD_DELAY8, 150,

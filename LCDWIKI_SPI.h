@@ -30,6 +30,9 @@
 #define ID_7735    6
 #define ID_1283A   7
 #define ID_1106    8
+#define ID_7735_128 9
+#define ID_9488   10
+#define ID_9225   11
 #define ID_UNKNOWN 0xFF
 
 //LCD controller chip mode identifiers
@@ -43,6 +46,11 @@
 #define ST7735S 7
 #define SSD1283A 8
 #define SH1106 9
+#define ST7735S128 10
+#define ILI9488 11
+#define ILI9488_18 12
+#define ILI9225 13
+
 
 typedef struct _lcd_info
 {
@@ -90,10 +98,11 @@ class LCDWIKI_SPI:public LCDWIKI_GUI
 	void Led_control(boolean i);
 
 	protected:
+	uint8_t xoffset,yoffset;
     uint16_t WIDTH,HEIGHT,width, height, rotation,lcd_driver,lcd_model;
 	boolean hw_spi;
 	private:
-	uint16_t XC,YC,CC,RC,SC1,SC2,MD,VL,R24BIT;
+	uint16_t XC,YC,CC,RC,SC1,SC2,MD,VL,R24BIT,MODEL;
  
 		 volatile uint8_t *spicsPort, *spicdPort, *spimisoPort , *spimosiPort, *spiclkPort;
 			      uint8_t  spicsPinSet, spicdPinSet  ,spimisoPinSet , spimosiPinSet , spiclkPinSet,

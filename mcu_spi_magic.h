@@ -50,6 +50,7 @@
 
 #define writeCmd16(x)  CD_COMMAND; write16(x)
 #define writeData16(x)  CD_DATA; write16(x)
+#define writeData18(x)  CD_DATA; write8((x>>8)&0xF8);write8((x>>3)&0xFC);write8(x<<3)
 
 
 //#define writeCmdData8(a, d) { CD_COMMAND; write8(a); CD_DATA; write8(d); }
