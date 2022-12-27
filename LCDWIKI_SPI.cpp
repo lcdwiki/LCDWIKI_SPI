@@ -1154,13 +1154,13 @@ void LCDWIKI_SPI::Set_Rotation(uint8_t r)
 				val = 0x1030; //0 degree 
 				break;
 		 	case 1: 
-				val = 0x1028; //90 degree 
+				val = 0x1000; //90 degree 
 				break;
 		 	case 2: 
-				val = 0x1000; //180 degree 
+				val = 0x1038; //180 degree 
 				break;
 		 	case 3: 
-				val = 0x1018; //270 degree 
+				val = 0x1008; //270 degree 
 				break;
 		}
 		writeCmdData16(MD, val); 
